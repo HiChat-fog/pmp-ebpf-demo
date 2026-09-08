@@ -1,2 +1,5 @@
 build/
 *.o
+__pycache__/
+*.bin.tmp
+tools/swarm_chunk.bin

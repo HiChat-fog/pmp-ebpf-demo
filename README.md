@@ -7,7 +7,7 @@ eBPF interpreter running unprivileged inside RISC-V PMP compartments on a CH32V3
 - `ebpf/` - eBPF subset interpreter, policies, host tests
 - `pmp/` - supervisor, monitor, attacker probe, trap handler, linker script
 - `tools/inject_swarm.py` - swarm injection + host-side mirror check
-- `reference/fw_pmp.paper.bin` - firmware image used for recorded results
+- `reference/fw_pmp.bin` - firmware image used for recorded results
 - `build.sh` - build everything
 
 ## Build
@@ -24,8 +24,9 @@ Output: `build/fw_pmp.bin`
 
 ## Run on board
 
-Flash `build/fw_pmp.bin` at 0x08000000 with wlink, then:
+Flash with wlink, then:
 
+    wlink flash -e build/fw_pmp.bin
     python3 tools/inject_swarm.py 32 --seed 7
 
 ## Toolchain
