@@ -1,0 +1,109 @@
+
+#include <stdint.h>
+#include "../ebpf/ebpf_mini.h"
+#include "../ebpf/policy_mavlink.h"
+#include "../ebpf/policy_conflict.h"
+#include "../ebpf/helpers_rv32.c"
+#include "../ebpf/ebpf_mini.c"
+
+#define MON_MODE     ((volatile uint32_t *)0x20004020u)  
+#define MON_OFF      ((volatile uint32_t *)0x20004040u)  
+#define MON_SIZES    ((volatile uint32_t *)0x20004060u)  
+#define MON_SHURU    ((volatile uint8_t *)0x20004080u)   
+#define MON_CONFN    ((volatile uint32_t *)0x20004180u)  
+#define MON_PIANYI     ((volatile uint32_t *)0x20004184u)  
+#define MON_CSIZES   ((volatile uint32_t *)0x20004290u)  
+#define MON_CAIJUE ((volatile uint32_t *)0x20004400u)  
+#define MON_INSNS    ((volatile uint32_t *)0x20004430u)  
+#define MON_BAN_CAIJUE    ((volatile uint32_t *)0x20004460u)  
+#define MON_CINSNS   ((volatile uint32_t *)0x20004560u)  
+#define MON_NVERD    ((volatile uint32_t *)0x20004680u)  
+#define MON_MAP      ((volatile uint32_t *)0x20004800u)  
+#define MON_SHUJU    ((volatile uint8_t *)0x20004A00u)   
+#define DIAG_RUNS    ((volatile uint32_t *)0x20004700u)  
+#define DIAG_ALRT    ((volatile uint32_t *)0x20004704u)  
+#define MAP_CELLS    64u
+
+static void yuansheng_guolv(void) {
+    for (int i = 0; i < 6; i++) {
+        const volatile uint8_t *p = MON_SHURU + MON_OFF[i];
+        uint32_t v;
+        if (p[0] != 0xFDu) {
+            v = 0u;
+        } else {
+            uint32_t msgid = (uint32_t)p[7] | ((uint32_t)p[8] << 8) | ((uint32_t)p[9] << 16);
+            uint32_t len = p[1];
+            if (msgid != 0u && msgid != 32u && msgid != 33u) v = 2u;
+            else if (len > 240u) v = 3u;
+            else if (msgid == 33u) {
+                uint32_t lat = (uint32_t)p[10] | ((uint32_t)p[11] << 8)
+                             | ((uint32_t)p[12] << 16) | ((uint32_t)p[13] << 24);
+                v = (lat > 900000000u) ? 4u : 1u;
+            } else v = 1u;
+        }
+        MON_NVERD[i] = v;
+    }
+}
+
+void jiankong_zhu(void) {
+    struct ebpf_prog prog;
+    struct ebpf_result r;
+    int i;
+
+    switch (MON_MODE[0]) {
+    case 2u:                                  
+        yuansheng_guolv();
+        break;
+    case 1u:                                  
+        for (i = 0; i < (int)MAP_CELLS; i++) MON_MAP[i] = 0;  
+        prog.ins = POLICY_CONFLICT;
+        prog.insn_cnt = POLICY_CONFLICT_CNT;
+        prog.map = (uint32_t *)MON_MAP;
+        prog.map_cells = MAP_CELLS;
+        prog.max_steps = 1000000u;
+        {
+            uint32_t al = 0;
+            for (i = 0; i < (int)MON_CONFN[0]; i++) {
+                prog.ctx = MON_SHUJU + MON_PIANYI[i];
+                prog.ctx_size = MON_CSIZES[i];
+                ebpf_yunxing(&prog, &r);
+                MON_BAN_CAIJUE[i] = (uint32_t)r.retval;
+                MON_CINSNS[i] = r.insns_executed;
+                if (r.retval == 5u) al++;
+            }
+            DIAG_RUNS[0]++;
+            DIAG_ALRT[0] = al;
+        }
+        break;
+    default:                                  
+        prog.ins = POLICY_MAVLINK;
+        prog.insn_cnt = POLICY_MAVLINK_CNT;
+        prog.map = 0;
+        prog.map_cells = 0;
+        prog.max_steps = 1000000u;
+        for (i = 0; i < 6; i++) {
+            prog.ctx = (const uint8_t *)(MON_SHURU + MON_OFF[i]);
+            prog.ctx_size = MON_SIZES[i];
+            ebpf_yunxing(&prog, &r);
+            MON_CAIJUE[i] = (uint32_t)r.retval;
+            MON_INSNS[i] = r.insns_executed;
+        }
+        break;
+    }
+    __asm__ volatile ("ecall");
+    for (;;) { __asm__ volatile ("wfi"); }
+}
+
+asm(
+    ".section .monitor.text\n"
+    ".globl jiankong_rukou\n"
+    ".align 2\n"
+    "jiankong_rukou:\n"
+    "  lui  sp, %hi(_mon_stack_top)\n"
+    "  addi sp, sp, %lo(_mon_stack_top)\n"
+    "  lui  t0, %hi(jiankong_zhu)\n"
+    "  addi t0, t0, %lo(jiankong_zhu)\n"
+    "  jalr t0\n"
+    "1: wfi\n"
+    "  j 1b\n"
+);
