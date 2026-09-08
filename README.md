@@ -5,7 +5,7 @@ eBPF interpreter running unprivileged inside RISC-V PMP compartments on a CH32V3
 ## Layout
 
 - `ebpf/` - eBPF subset interpreter, policies, host tests
-- `pmp/` - supervisor, monitor, attacker probe, trap handler, linker script
+- `pmp/` - supervisor, monitor, attacker probe, trap handler, linker script, PMP semantics probe
 - `tools/inject_swarm.py` - swarm injection + host-side mirror check
 - `reference/fw_pmp.bin` - firmware image used for recorded results
 - `build.sh` - build everything
@@ -14,7 +14,13 @@ eBPF interpreter running unprivileged inside RISC-V PMP compartments on a CH32V3
 
     ./build.sh
 
-Output: `build/fw_pmp.bin`
+Output: `build/fw_pmp.bin`, `build/pmp_probe.bin`
+
+## PMP semantics probe
+
+    wlink flash -e build/pmp_probe.bin
+
+Results land in SRAM: CSR read-backs and fault log at 0x20000100, U-mode markers at 0x20001000 (`wlink dump 0x20000100 400`). The last stage ends hung by design (misaligned-mtvec trap test); reflash `build/fw_pmp.bin` afterwards.
 
 ## Host tests
 

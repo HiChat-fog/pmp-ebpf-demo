@@ -12,4 +12,7 @@ $CC -O0 -c ../pmp/attacker_main.c -o attacker.o   # attacker stays -O0 (matches 
 $LLD -flavor gnu -T ../pmp/link_pmp.ld -nostdlib -o fw_pmp.elf \
     startup.o main_pmp.o monitor.o attacker.o trap_pmp.o
 riscv64-unknown-elf-objcopy -O binary --only-section=.text --only-section=.monitor_text --only-section=.attacker_text fw_pmp.elf fw_pmp.bin
-echo "build/fw_pmp.bin"
+$CC -c ../pmp/pmp_probe.c -o pmp_probe.o
+$LLD -flavor gnu -T ../pmp/pmp_probe.ld -nostdlib -o pmp_probe.elf pmp_probe.o
+riscv64-unknown-elf-objcopy -O binary pmp_probe.elf pmp_probe.bin
+echo "build/fw_pmp.bin build/pmp_probe.bin"
